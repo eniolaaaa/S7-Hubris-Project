@@ -1,0 +1,79 @@
+{
+  // Run configurations: open the Run and Debug panel (Ctrl+Shift+D) and press the green play button.
+  // Paths assume this folder sits next to the data in Downloads.
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "1. Sync video 1 (full run)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/run_sync.py",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "args": [
+        "--video", "${workspaceFolder}/../varjo_capture1.mp4",
+        "--gaze", "${workspaceFolder}/../varjo_gaze_output1.csv",
+        "--out", "${workspaceFolder}/out/video1"
+      ]
+    },
+    {
+      "name": "2. Sync video 1 (reuse cursor track, fast)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/run_sync.py",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "args": [
+        "--video", "${workspaceFolder}/../varjo_capture1.mp4",
+        "--gaze", "${workspaceFolder}/../varjo_gaze_output1.csv",
+        "--out", "${workspaceFolder}/out/video1",
+        "--cursor-csv", "${workspaceFolder}/out/video1/cursor_track.csv"
+      ]
+    },
+    {
+      "name": "3. Detect cars/trucks video 1 (YOLO11, resumable)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/run_detect.py",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "args": [
+        "--video", "${workspaceFolder}/../varjo_capture1.mp4",
+        "--sync-dir", "${workspaceFolder}/out/video1"
+      ]
+    },
+    {
+      "name": "4. Segment road lines/edge video 1 (Mask2Former, resumable)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/run_road.py",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "args": [
+        "--video", "${workspaceFolder}/../varjo_capture1.mp4",
+        "--sync-dir", "${workspaceFolder}/out/video1",
+        "--batch", "4"
+      ]
+    },
+    {
+      "name": "5. Track cars/trucks video 1 (CPU, ~30 s)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/run_track.py",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "args": [
+        "--sync-dir", "${workspaceFolder}/out/video1",
+        "--video", "${workspaceFolder}/../varjo_capture1.mp4"
+      ]
+    },
+    {
+      "name": "Run current file",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${file}",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal"
+    }
+  ]
+}
