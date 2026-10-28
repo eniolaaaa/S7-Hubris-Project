@@ -43,28 +43,29 @@ popup is labelled `other`. Lane assignment of vehicles (ego / adjacent / beyond)
 | | **Video 1 result** | `out/video1/seg_m2f/` | 18,966 label maps (224 MB); road, lines, edge found in every sampled frame of the drive (frames ~2,090-20,460) |
 | 4c | Car/truck tracking: ByteTrack on the saved boxes (CPU, ~30 s) | `hubris/track.py`, `run_track.py` | done on video 1 |
 | | **Video 1 result** | `out/video1/detections_yolo11l_tracked.*` | 3,177 tracks; 96% of boxes in tracks of 3+ frames; 363 car/truck flips fixed; 3,976 gap boxes filled |
-| 4d | Speed display | | next |
-| 5 | Gaze circle labelling, fixations | | |
+| 4d | Speed display: anchored on the screen's teal light bar (CPU, ~5 min) | `hubris/speed.py`, `run_speed.py` | done on video 1 |
+| | **Video 1 result** | `out/video1/speed_display.csv` | found in 100% of drive frames (2,090-20,460) incl. all frames with gaze low in the view; missed only in the fog |
+| 5 | Label every gaze sample: 1.5 deg circle, fixed priority (CPU, ~1 min) | `hubris/label.py`, `run_label.py` | done on video 1 |
+| | **Video 1 result** | `out/video1/gaze_labels.csv` | drive: 55% car, 21% truck, 10% road line, 10% other, 1.1% speed display; 91 vehicles looked at |
+| 6 | Annotated demo video (H.264 .mp4) | `hubris/demo.py`, `run_demo.py` | done: 60 s highlight of video 1 |
+| 5b | Fixations, dwell time | | next |
 
 ## Next steps
-1. Speed display (`interior - speed display`): a fixed spot in the cockpit, so a template/ROI may do.
-2. Label every gaze sample: circle of ~39 px (1.5 deg) around (`x_px`, `y_px`) on `display_frame`. One object
-   touched -> that label; several -> largest overlap (flag as ambiguous); none -> road line / road edge /
-   speed display, else `other`; invalid sample -> `other - invalid`. Vehicles come from
-   `detections_yolo11l_tracked` with `track_len >= 3`.
+1. ~~Speed display~~ done (step 4d).
+2. ~~Label every gaze sample~~ done (step 5).
 3. Hand-label ~200-300 test frames from video 1, spread across the drive, for accuracy numbers (can start now).
 4. Fixations (I-VT or I-DT) on the 200 Hz stream; label each fixation; dwell time, time to first fixation,
    road <-> speed display switches.
-5. Annotated demo video: boxes + gaze circle + current label drawn on the frames.
+5. ~~Annotated demo video~~ done (step 6).
 6. Report. Then run the finished pipeline on video 2, untouched.
 
 Should-haves after that: dotted vs solid line (from the shape of the line mask), mirror (a fixed region
 relative to the cockpit is likely better than the segmentation, which calls the mirror "Bridge"), guard rail
 (already segmented in step 4b).
 
-Open questions for the group:
-- The fog at the start (until ~frame 2,090): exclude it, or keep it for interior labels only?
-- Gaze on plain asphalt (no line, edge or vehicle): `road - surface` or `other`?
+Decided by the group (2026-10-27): drop the fog (`other - fog`), plain road is `road - surface`, fixed priority
+instead of largest overlap, guard rail included. Still open: report the circle (tolerant) or the gaze-point
+(strict) labels, or both? See step 5 below; a table over several circle sizes would show how much it matters.
 
 ## Open in VS Code (Windows)
 1. Keep this folder next to the data: `Downloads\hubris_pipeline`, with `varjo_capture1.mp4` and
@@ -142,6 +143,88 @@ RTX 4070 laptop GPU (~45 min for video 1). Resumable: one PNG per frame; rerun a
   no road or vehicles visible (YOLO finds nothing there either), although the car is already driving at 84-94 km/h
   and the speed display is visible.
 - Check `check/road_frame_*.jpg`: purple = road surface, red = road line, yellow = road edge, blue = guard rail.
+
+## Step 5: label every gaze sample (2026-10-27)
+```
+python run_label.py --sync-dir out\video1 --video ..\varjo_capture1.mp4
+```
+(VS Code: Run and Debug > **7. Label gaze video 1**.) CPU only, ~1 min with 8 worker processes. Needs the outputs of
+steps 1-4d. The rules are the settings at the top of `hubris/label.py`.
+- For each valid sample in the drive (frames 2,090-20,460): a 1.5 deg circle (39 px) around (`x_px`, `y_px`) on
+  `display_frame`. The first thing in this order that the circle touches gives the label:
+  speed display -> car / truck -> road line -> road edge -> guard rail -> road surface -> `other - other`.
+  Two vehicles: the one with most overlap. Vehicles only from tracks of 3+ frames.
+- Other samples: `other - invalid` (blink / tracking lost, before the video, gaze outside the image) or
+  `other - fog` (start and end of the video).
+- Road patches with the car's own interior just above them are dropped first (`hubris/road.py`): when the driver
+  looks down, the segmentation sometimes calls the footwell "road".
+- Vehicle tracks whose boxes are mostly centred on the car's own interior are dropped too (10 tracks in video 1,
+  listed in `gaze_labels.json`): YOLO sometimes boxes the bottom edge of the windscreen as a wide, flat "car".
+- Output `gaze_labels.csv`: one row per Varjo sample (140,374): `label` (`category - class`), `track_id` of the
+  vehicle, `overlap` (share of the circle on the labelled thing), `on_target` (the gaze point itself is on it),
+  `ambiguous` (the circle touches several things and the gaze point is not on the chosen one, so the order
+  decided), `touches` (everything the circle touched), `label_point` (strict label from the gaze point alone)
+  and `reason` for samples that could not be labelled. `gaze_labels.json` has the summary numbers.
+- Video 1, drive samples (117,087 = 585 s):
+
+  | Label | Circle (1.5 deg) | Gaze point only |
+  |---|---|---|
+  | object - car | 55.3% | 27.6% |
+  | object - truck | 21.5% | 8.5% |
+  | road - road line | 10.3% | 10.0% |
+  | other - other | 10.2% | 17.0% |
+  | interior - speed display | 1.14% | 1.05% |
+  | road - guard rail / road edge / surface | 0.6% / 0.6% / 0.5% | 0.5% / 3.2% / 32.2% |
+
+- **The circle size matters a lot.** This driver mostly looks far ahead, where vehicles are small (median 67 px
+  tall, the circle is 79 px across), so the circle often touches a car, a lane line and the road edge at once.
+  For half of the `car` labels the gaze point itself is just next to the car. The speed display is clear-cut
+  (gaze point on it in 92% of its samples). 43.7% of drive samples are `ambiguous`. The hand-labelled test
+  frames will show which labelling is closer to the truth.
+- 91 different vehicles were looked at; most: truck #809 (63 s), car #88 (44 s), car #485 (41 s).
+- Gaze on the rating popup ("Please rate your Perceived Risk...") ends up as `other - other`, as agreed.
+- Check `check/label_*.jpg`: two example frames per label with everything found, the gaze circle and its label.
+
+## Step 6: annotated demo video (2026-10-27)
+```
+python run_demo.py --sync-dir out\video1 --video ..\varjo_capture1.mp4                # 60 s highlight
+python run_demo.py --sync-dir out\video1 --video ..\varjo_capture1.mp4 --whole-drive  # frames 2,090-20,460
+```
+(VS Code: Run and Debug > **8. Demo video, 60 s highlight** or **9. Demo video, whole drive**.) Needs steps 1-5.
+- Default `--style clean`: only what the driver looks at is highlighted (the vehicle box filled with its track
+  number, the speed display, or for road labels just the line / edge / guard rail / road near the gaze), other
+  vehicles get a thin outline. `--style full` draws everything found (all road lines, edges, guard rails, road
+  surface, every box with its number) and adds `_full` to the file name.
+- Every frame has the gaze circle, a banner with the current label, and a colour-coded timeline of the labels
+  along the bottom with a cursor and a one-line key.
+- A frame's label is the most common label of its 6-7 gaze samples. During blinks (frames without gaze) the
+  last road map is kept, so the overlay does not flicker.
+- Default clip: 10:05-11:05 (frames 18,150-19,949), the minute with the most varied gaze (27 s truck, 13 s car,
+  3 s road line, 3 s speed display, 10 s rating popup). `--start-frame` and `--seconds` pick another one.
+- Output `out/video1/demo_<start>-<end>.mp4`: H.264, 1280x960 at 30 fps (plays in PowerPoint, browsers and the
+  Windows player), written with the ffmpeg bundled in the `imageio-ffmpeg` package.
+
+## Step 4d: speed display (2026-10-27)
+```
+python run_speed.py --video ..\varjo_capture1.mp4 --sync-dir out\video1
+```
+(VS Code: Run and Debug > **6. Find speed display video 1**.) CPU only, ~60 frames/s (~5 min for video 1).
+- The display moves with the driver's head: it tilts up to ~23 deg when they look down, and in normal
+  driving it is half cut off at the bottom of the view. A fixed region does not work.
+- Anchor: the pale-teal light bar along the top of the screen. It stays ~225 px long in every head position.
+  `hubris/speed.py` finds thin, straight, pale-teal stripes with a dark screen below them (this skips the
+  glowing steering-wheel rim, the gaze cursor, which is the same hue but far more saturated, and the sky),
+  glues pieces split by the gaze cursor back together and restores an end hidden by the cursor or the frame
+  border. The screen is a box hanging below the bar: bar + 20 px each side, 380 px deep.
+- Tried first and dropped: SIFT feature matching against a reference frame (the dark dashboard gives only
+  5-7 matching features).
+- Output `speed_display.csv`: per frame `found`, `bar_len`, `tilt_deg` and the screen corners `x1,y1`
+  (top-left) to `x4,y4` (bottom-left) in video pixels; the box may reach below the frame. Gaps of up to 5
+  frames would be interpolated (`interpolated`); video 1 needed none.
+- Video 1: found in 100% of the 17,769 drive frames and in all 271 frames where the gaze is low in the view;
+  no jumps over 60 px between consecutive frames. Missed in the fog (1,174 frames): the fog washes out the
+  bar, although the display is still faintly visible there.
+- Check `check/speed_frame_*.jpg`: magenta box = speed display.
 
 ## Step 4c: car/truck tracking (2026-10-13)
 ```

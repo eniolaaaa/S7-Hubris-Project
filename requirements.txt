@@ -6,3 +6,4 @@ pyarrow
 transformers
 scipy
 lap
+imageio-ffmpeg

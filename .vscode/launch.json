@@ -68,6 +68,55 @@
       ]
     },
     {
+      "name": "6. Find speed display video 1 (CPU, ~6 min)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/run_speed.py",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "args": [
+        "--video", "${workspaceFolder}/../varjo_capture1.mp4",
+        "--sync-dir", "${workspaceFolder}/out/video1"
+      ]
+    },
+    {
+      "name": "7. Label gaze video 1 (CPU, ~1 min)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/run_label.py",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "args": [
+        "--sync-dir", "${workspaceFolder}/out/video1",
+        "--video", "${workspaceFolder}/../varjo_capture1.mp4"
+      ]
+    },
+    {
+      "name": "8. Demo video, 60 s highlight (~2 min)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/run_demo.py",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "args": [
+        "--sync-dir", "${workspaceFolder}/out/video1",
+        "--video", "${workspaceFolder}/../varjo_capture1.mp4"
+      ]
+    },
+    {
+      "name": "9. Demo video, whole drive (~25 min)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/run_demo.py",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "args": [
+        "--sync-dir", "${workspaceFolder}/out/video1",
+        "--video", "${workspaceFolder}/../varjo_capture1.mp4",
+        "--whole-drive"
+      ]
+    },
+    {
       "name": "Run current file",
       "type": "debugpy",
       "request": "launch",
