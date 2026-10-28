@@ -25,6 +25,8 @@ GUARD_RAIL = ["Guard Rail"]
 # The road edge is where the road surface meets one of these (not vehicles, the ego car or the sky).
 OFFROAD = ["Curb", "Fence", "Guard Rail", "Barrier", "Wall", "Sidewalk", "Terrain", "Vegetation",
            "Sand", "Snow", "Water", "Mountain", "Building", "Pedestrian Area", "Parking", "Curb Cut"]
+EGO = ["Ego Vehicle", "Car Mount"]  # the driver's own car
+INDOOR_MAX_SHARE = 0.15             # drop road patches with more of the car itself just above them
 
 
 def _ids(names, id2label):
@@ -90,11 +92,27 @@ class RoadSegmenter:
         return [s.to("cpu").numpy().astype(np.uint8) for s in segs]
 
 
-def road_layers(seg: np.ndarray, id2label: dict, edge_px: int = 2, min_area_frac: float = 0.02) -> dict:
+def _indoor_share(seg, comp, ego_ids) -> float:
+    """Share of the pixels just above a road patch that belong to the car itself."""
+    cols = np.nonzero(comp.any(0))[0]
+    top = comp.argmax(0)[cols]
+    above = []
+    for dy in (6, 12, 20):
+        y = top - dy
+        ok = y >= 0
+        above.append(np.isin(seg[y[ok], cols[ok]], ego_ids))
+    above = np.concatenate(above)
+    return float(above.mean()) if len(above) else 1.0
+
+
+def road_layers(seg: np.ndarray, id2label: dict, edge_px: int = 2, min_area_frac: float = 0.02,
+                max_indoor_share: float = INDOOR_MAX_SHARE) -> dict:
     """Binary masks (uint8, same size as seg) for road surface, road line, road edge and guard rail.
 
     - road surface: road-like classes; small blobs (< min_area_frac of the largest) are dropped, which removes
-      e.g. road seen in the rear-view mirror.
+      e.g. road seen in the rear-view mirror. Patches with the car's own interior just above them are dropped
+      too: when the driver looks down, the model sometimes calls the dark footwell "road". Real road has the
+      horizon above it (0% interior on every frame checked), the footwell has 28-100%.
     - road line: lane markings on that surface.
     - road edge: boundary of the surface where it meets an off-road class, `edge_px` wide on each side.
     """
@@ -103,6 +121,10 @@ def road_layers(seg: np.ndarray, id2label: dict, edge_px: int = 2, min_area_frac
     if n > 1:
         area = st[1:, cv2.CC_STAT_AREA]
         keep = np.r_[False, area >= min_area_frac * area.max()]
+        ego_ids = _ids(EGO, id2label)
+        for i in np.nonzero(keep)[0]:
+            if _indoor_share(seg, lab == i, ego_ids) > max_indoor_share:
+                keep[i] = False
         surface = keep[lab].astype(np.uint8)
 
     line = (np.isin(seg, _ids(LINE, id2label)) & (surface > 0)).astype(np.uint8)
