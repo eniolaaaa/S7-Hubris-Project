@@ -1,11 +1,11 @@
-"""Step 4b of the HUBRIS pipeline: segment road surface, road lines, road edge and guard rail.
+"""Step 4b: segment road surface, road lines, road edge and guard rail.
 
 Usage:
     python run_road.py --video ../varjo_capture1.mp4 --sync-dir out/video1
 
 Runs Mask2Former (Mapillary Vistas) on every `display_frame` with a valid gaze sample inside the video,
-from --start-frame on, and saves the raw label map per frame. `hubris.road.road_layers` turns a label map
-into the road classes.
+from --start-frame on (foggy frames included; step 5 finds the drive), and saves the raw label map per
+frame. `hubris.road.road_layers` turns a label map into the road classes.
 
 The burned-in gaze cursor is inpainted first, at the positions in <sync-dir>/cursor_track.csv (step 3).
 
@@ -35,7 +35,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--video", required=True)
     ap.add_argument("--sync-dir", required=True, help="output folder of run_sync.py (gaze_synced.csv)")
-    ap.add_argument("--start-frame", type=int, default=1400, help="skip the pre-drive scene before this frame")
+    ap.add_argument("--start-frame", type=int, default=0, help="skip frames before this one")
     ap.add_argument("--end-frame", type=int, default=None)
     ap.add_argument("--batch", type=int, default=4)
     ap.add_argument("--device", default="cuda")

@@ -117,6 +117,19 @@
       ]
     },
     {
+      "name": "10. Run everything on video 2 (~100 min, resumable)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/run_all.py",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "args": [
+        "--video", "${workspaceFolder}/../varjo_capture2.mp4",
+        "--gaze", "${workspaceFolder}/../varjo_gaze_output2.csv",
+        "--out", "${workspaceFolder}/out/video2"
+      ]
+    },
+    {
       "name": "Run current file",
       "type": "debugpy",
       "request": "launch",

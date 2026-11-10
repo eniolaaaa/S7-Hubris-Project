@@ -1,8 +1,7 @@
-"""Step 1-3 of the HUBRIS pipeline for one video: clean, time-sync and pixel-map the gaze,
-then write an overlay check.
+"""Steps 1-3: clean the gaze log, match each sample to a video frame and map it to video pixels.
 
 Usage:
-    python run_sync.py --video P01.mp4 --gaze P01_gaze.csv --out out/P01
+    python run_sync.py --video ../varjo_capture1.mp4 --gaze ../varjo_gaze_output1.csv --out out/video1
 
 Outputs in --out:
     gaze_synced.csv     one row per Varjo sample: time, frame, valid, x_px, y_px (+ raw columns)

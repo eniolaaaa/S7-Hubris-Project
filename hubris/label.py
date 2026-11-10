@@ -1,17 +1,13 @@
 """Step 5: label every gaze sample with what the driver looked at (`category - class`).
 
-For a valid sample in the drive, a circle of RADIUS_DEG around its pixel position on `display_frame` is
-checked against everything found in steps 4-4d. The first kind in PRIORITY that the circle touches gives the
-label; within a kind (two cars) the one with the most overlap wins. `touches` lists everything the circle
-touches (road surface not counted), `on_target` says whether the gaze point itself is on the labelled thing,
-and `ambiguous` marks samples where the circle touches several things but the gaze point is not on
-the chosen one, i.e. the priority order made the choice. `label_point` is the strict label from the gaze point
-alone. Far ahead, where this driver mostly looks, vehicles (~67 px tall) are smaller than the circle (79 px
-across), so the circle usually touches a car, a line and an edge at once.
+Each valid sample in the drive gets a circle of RADIUS_DEG around its gaze point on `display_frame`. We walk
+through PRIORITY and the first thing the circle touches gives the label; if it touches two vehicles, the one
+with the most overlap wins. The strict label from the gaze point alone is kept too (`label_point`): far ahead,
+vehicles (~67 px tall in video 1) are smaller than the circle (79 px across), so the circle often touches a
+car, a line and an edge at the same time.
 
-The group's choices (2026-10-27) are the settings below: drop the fog, label plain road `road - surface`,
-fixed priority instead of largest overlap (the road surface would otherwise beat almost everything),
-include guard rail.
+Settings agreed in the group meeting of 2026-10-27: fog is left out, plain road is `road - surface`, fixed
+priority instead of largest overlap (otherwise the road surface wins almost every time), guard rail included.
 """
 from __future__ import annotations
 
@@ -20,7 +16,8 @@ import numpy as np
 import pandas as pd
 
 RADIUS_DEG = 1.5
-DRIVE_FRAMES = (2090, 20460)        # outside: fog at the start and end -> `other - fog`
+DRIVE_FRAMES = None                 # None: found automatically where the road is visible (drive.json);
+                                    # outside it is fog -> `other - fog`. Or set (first, last) by hand.
 MIN_TRACK_LEN = 3                   # vehicles: ignore boxes that never form a track
 PRIORITY = ["speed display", "vehicle", "road line", "road edge", "guard rail", "road surface"]
 LABELS = {"speed display": ("interior", "speed display"), "road line": ("road", "road line"),
@@ -42,10 +39,12 @@ def label_frame(xy: np.ndarray, radius_px: float, masks: dict, boxes: pd.DataFra
 
     masks: half-size uint8 masks for "speed display", "road line", "road edge", "guard rail", "road surface".
     boxes: vehicle boxes in video pixels (track_id, class, x1, y1, x2, y2, conf).
-    Returns per point: (category, class, track_id, overlap share of the circle, on_target, ambiguous, touches,
-    label_point). `on_target`: the gaze point itself lies on the labelled thing. `ambiguous`: the circle touches
-    several things and the gaze point is not on the chosen one, so the priority order made the choice.
-    `label_point`: the strict label from the gaze point alone, same priority, no circle.
+
+    Per point: (category, class, track_id, overlap, on_target, ambiguous, touches, label_point).
+    on_target: the gaze point itself is on the labelled thing.
+    ambiguous: the circle touches several things and the gaze point isn't on the chosen one, so the
+    priority order decided.
+    touches: everything the circle touches except plain road surface.
     """
     dx, dy = disc(radius_px * SCALE)
     h, w = next(iter(masks.values())).shape
@@ -91,6 +90,25 @@ def label_frame(xy: np.ndarray, radius_px: float, masks: dict, boxes: pd.DataFra
                 break
         out.append((*result, on_target, len(touches) > 1 and not on_target, ";".join(touches), point))
     return out
+
+
+def drive_frames(sync_dir: str, id2label: dict) -> tuple[int, int]:
+    """The drive's first and last frame: DRIVE_FRAMES if set, else <sync_dir>/drive.json, computed and saved
+    from the road segmentation the first time (~1 min)."""
+    import json
+    import os
+    from .road import drive_range
+    if DRIVE_FRAMES is not None:
+        return tuple(DRIVE_FRAMES)
+    path = f"{sync_dir}/drive.json"
+    if os.path.exists(path):
+        return tuple(json.load(open(path))["drive_frames"])
+    frames = [int(f[:6]) for f in os.listdir(f"{sync_dir}/seg_m2f") if f.endswith(".png") and f[:6].isdigit()]
+    rng = drive_range(f"{sync_dir}/seg_m2f", frames, id2label)
+    with open(path, "w") as f:
+        json.dump({"drive_frames": rng, "method": "first/last frame with the road visible in 90% of the "
+                                                  "next/previous 10 s (hubris.road.drive_range)"}, f, indent=2)
+    return rng
 
 
 def interior_tracks(boxes: pd.DataFrame, sync_dir: str, id2label: dict, max_share: float = 0.5) -> list[int]:

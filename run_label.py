@@ -1,12 +1,12 @@
-"""Step 5 of the HUBRIS pipeline: label every gaze sample with what the driver looked at.
+"""Step 5: label every gaze sample with what the driver looked at.
 
 Usage:
     python run_label.py --sync-dir out/video1 --video ../varjo_capture1.mp4
 
 Needs the outputs of steps 1-4d in --sync-dir: gaze_synced.csv, calibration.json,
 detections_yolo11l_tracked.parquet, seg_m2f/ (+ seg_m2f.json) and speed_display.csv. CPU only.
-The rules and the group's choices are the settings at the top of hubris/label.py. --video is only needed
-for the check images.
+The labelling rules are the settings at the top of hubris/label.py. --video is only needed for the
+check images.
 
 Outputs in --sync-dir:
     gaze_labels.csv|parquet   one row per Varjo sample: raw_csv_row, video_time_s, display_frame, x_px, y_px,
@@ -77,7 +77,8 @@ def main():
     out.loc[(gaze.video_time_s >= 0) & ~gaze.valid, "reason"] = "blink or tracking lost"
     out.loc[gaze.valid & ~gaze.inside_video, "reason"] = "gaze outside the video image"
     ok = gaze.valid & gaze.inside_video
-    lo, hi = label.DRIVE_FRAMES
+    lo, hi = label.drive_frames(d, id2label)
+    print(f"drive: frames {lo}-{hi} (outside: fog)")
     fog = ok & ((gaze.display_frame < lo) | (gaze.display_frame > hi))
     out.loc[fog, "class"] = "fog"
     out.loc[fog, "reason"] = "fog: road not visible"
@@ -114,7 +115,7 @@ def main():
     veh = drive[drive.category == "object"]
     report = {
         "samples": int(len(out)), "labelled_in_drive": int(len(drive)),
-        "settings": {"radius_deg": label.RADIUS_DEG, "radius_px": round(radius, 1), "drive_frames": label.DRIVE_FRAMES,
+        "settings": {"radius_deg": label.RADIUS_DEG, "radius_px": round(radius, 1), "drive_frames": [lo, hi],
                      "min_track_len": label.MIN_TRACK_LEN, "priority": label.PRIORITY},
         "dropped_interior_tracks": dropped,
         "all_samples_pct": out.label.value_counts(normalize=True).mul(100).round(2).to_dict(),

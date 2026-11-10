@@ -1,4 +1,4 @@
-"""Step 4c of the HUBRIS pipeline: track the car/truck boxes from run_detect.py over time.
+"""Step 4c: track the car/truck boxes from run_detect.py over time.
 
 Usage:
     python run_track.py --sync-dir out/video1 --video ../varjo_capture1.mp4

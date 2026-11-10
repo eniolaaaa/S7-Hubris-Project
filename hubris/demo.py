@@ -1,8 +1,8 @@
-"""Step 6: draw the annotated demo video frames.
+"""Step 6: drawing for the annotated demo video.
 
-Each frame shows everything the pipeline found (road lines/edges, guard rail, vehicles with their track
-number, the speed display), the gaze circle, a banner with the current label, and a timeline strip of the
-labels over the whole clip. What the driver is looking at is drawn thicker and filled.
+Every frame gets the gaze circle, a banner with the current label and a colour-coded timeline of the labels
+along the bottom. In the default "clean" style only the thing the driver looks at is highlighted; "full"
+draws everything the pipeline found.
 """
 from __future__ import annotations
 
@@ -43,6 +43,26 @@ def frame_summary(labels: pd.DataFrame) -> pd.DataFrame:
     out["ambiguous"] = m.groupby("frame").ambiguous.mean() > 0.5
     pts = valid.groupby("frame")[["x_px", "y_px"]].median()
     return out.join(pts)
+
+
+CLIP_LABELS = ["object - car", "object - truck", "road - road line", "interior - speed display", "other - other"]
+
+
+def pick_clip(labels: pd.DataFrame, drive, fps: float, seconds: float = 60, step_s: float = 5) -> int:
+    """First frame of the most varied clip in the drive: the one whose least-seen label from CLIP_LABELS
+    still gets the most seconds (200 gaze samples per second); ties go to the next least-seen label."""
+    d = labels[labels.reason == ""].dropna(subset=["display_frame"])
+    f = d.display_frame.astype(int).to_numpy()
+    lab = d.label.to_numpy()
+    n, step = int(seconds * fps), int(step_s * fps)
+    best = ((-1.0,), drive[0])
+    first = -(-drive[0] // step) * step                      # whole multiples of the step
+    for start in range(first, max(first, drive[1] - n) + 1, step):
+        inside = (f >= start) & (f < start + n)
+        score = tuple(sorted((lab[inside] == l).sum() / 200 for l in CLIP_LABELS))
+        if score > best[0]:
+            best = (score, start)
+    return best[1]
 
 
 def _fill(img, pts, color, alpha):

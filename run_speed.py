@@ -1,4 +1,4 @@
-"""Step 4d of the HUBRIS pipeline: find the speed display in every frame that has gaze.
+"""Step 4d: find the speed display in every frame that has gaze.
 
 Usage:
     python run_speed.py --video ../varjo_capture1.mp4 --sync-dir out/video1
@@ -33,7 +33,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--video", required=True)
     ap.add_argument("--sync-dir", required=True, help="output folder of run_sync.py (gaze_synced.csv)")
-    ap.add_argument("--start-frame", type=int, default=1400)
+    ap.add_argument("--start-frame", type=int, default=0, help="skip frames before this one")
     ap.add_argument("--end-frame", type=int, default=None)
     ap.add_argument("--max-gap", type=int, default=5, help="fill gaps of up to this many frames")
     ap.add_argument("--snapshots", type=int, default=12)

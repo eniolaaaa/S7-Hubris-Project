@@ -1,7 +1,7 @@
-"""Step 4: vehicle detection with a pretrained YOLO11 (ultralytics, COCO weights).
+"""Step 4: car/truck detection with a pretrained YOLO11 (ultralytics, COCO weights).
 
-COCO car=2, bus=5, truck=7. The class list (README.md) has only car and truck, so bus is folded into
-truck; the original COCO name is kept in `coco_class`.
+COCO ids: car=2, bus=5, truck=7. We only label car and truck, so a bus counts as a truck. The original
+COCO name stays in `coco_class`.
 """
 from __future__ import annotations
 

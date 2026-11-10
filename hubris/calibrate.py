@@ -1,14 +1,14 @@
 """Map Varjo projected gaze (x, y) to video pixels (step 3 of the pipeline).
 
-The video has the gaze cursor burned in as a teal dot. We detect that dot in a
-sample of frames, pair it with the median Varjo gaze of the same frame, and fit
-an affine transform with RANSAC (deck slide 41):
+The simulator burns its own gaze cursor into the video as a teal dot. We find that
+dot in a sample of frames, pair it with the median Varjo gaze of the same frame and
+fit an affine map with RANSAC (same idea as slide 41 of the client's deck):
 
     x_px = a*x_varjo + b*y_varjo + c
     y_px = d*x_varjo + e*y_varjo + f
 
-We also search a small frame lag, in case the cursor is drawn a frame or two
-behind the CSV timestamps, and keep the lag with the lowest residual.
+The dot can be drawn a frame or two after the CSV timestamp, so a few frame lags are
+tried and the one with the lowest error is kept.
 """
 from __future__ import annotations
 

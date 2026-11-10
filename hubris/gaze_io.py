@@ -7,7 +7,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-# Column names as exported by the Varjo logger (see deck slide 39).
+# Column names as exported by the Varjo logger (slide 39 of the client's deck).
 TIME_COL = "relative_to_video_first_frame_timestamp"  # nanoseconds
 STATUS_COL = "status"
 LEFT_X, LEFT_Y = "gaze_projected_to_left_view_x", "gaze_projected_to_left_view_y"

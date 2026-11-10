@@ -1,8 +1,9 @@
-"""Detect the teal cursor in every frame of [start, end) and append to a CSV.
+"""Find the teal gaze cursor in frames [start, end) and append the positions to a CSV.
 
-Lets the cursor track be built in chunks when a single long run is not possible:
-    python detect_cursor_chunk.py --video v.mp4 --out cursor.csv --start 0 --end 5000
-Then pass --cursor-csv cursor.csv to run_sync.py.
+run_all.py calls this in chunks to build cursor_track.csv, so a long run that gets cut off only loses
+the current chunk. By hand:
+    python detect_cursor_chunk.py --video ../varjo_capture1.mp4 --out out/video1/cursor_track.csv --start 0 --end 3000
+Then pass --cursor-csv out/video1/cursor_track.csv to run_sync.py.
 """
 import argparse
 import os

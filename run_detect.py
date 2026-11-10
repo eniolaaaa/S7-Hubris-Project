@@ -1,13 +1,13 @@
-"""Step 4 of the HUBRIS pipeline: YOLO11 car/truck detection on the frames that have gaze.
+"""Step 4: YOLO11 car/truck detection on the frames that have gaze.
 
 Usage:
     python run_detect.py --video ../varjo_capture1.mp4 --sync-dir out/video1
 
 Reads gaze_synced.csv from --sync-dir and detects on every `display_frame` with a valid gaze sample
-inside the video (from --start-frame on; frames 0-1400 are the foggy pre-drive scene).
+inside the video (from --start-frame on). Foggy frames are kept; step 5 finds the drive itself.
 
-Resumable: detections are written in chunks to <sync-dir>/detections_<model>/part_*.parquet and
-finished chunks are skipped on a rerun, so a run that gets cut off can simply be started again.
+Resumable: detections are saved in chunks to <sync-dir>/detections_<model>/part_*.parquet and finished
+chunks are skipped, so a run that got cut off picks up where it stopped.
 
 Outputs in --sync-dir:
     detections_<model>.parquet|csv   one row per box: frame, category, class, coco_class, x1, y1, x2, y2, conf
@@ -37,7 +37,7 @@ def main():
     ap.add_argument("--model", default="yolo11l.pt", help="ultralytics weights, e.g. yolo11n.pt ... yolo11x.pt")
     ap.add_argument("--imgsz", type=int, default=1280, help="inference size (frames are 2048x1536)")
     ap.add_argument("--conf", type=float, default=0.25)
-    ap.add_argument("--start-frame", type=int, default=1400, help="skip the pre-drive scene before this frame")
+    ap.add_argument("--start-frame", type=int, default=0, help="skip frames before this one")
     ap.add_argument("--end-frame", type=int, default=None)
     ap.add_argument("--batch", type=int, default=8)
     ap.add_argument("--chunk", type=int, default=1000, help="frames per saved part (resume granularity)")

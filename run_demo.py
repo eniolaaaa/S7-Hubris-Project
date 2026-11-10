@@ -1,12 +1,12 @@
-"""Step 6 of the HUBRIS pipeline: render the annotated demo video.
+"""Step 6: render the annotated demo video.
 
 Usage:
     python run_demo.py --sync-dir out/video1 --video ../varjo_capture1.mp4               # 60 s highlight
     python run_demo.py --sync-dir out/video1 --video ../varjo_capture1.mp4 --whole-drive # ~10 min
 
 Needs the outputs of steps 1-5. Writes an H.264 .mp4 (plays in PowerPoint, browsers and Windows) through the
-ffmpeg that comes with the imageio-ffmpeg package. The default clip, 10:05-11:05, is the minute with the most
-varied gaze: trucks, cars, road lines, the speed display and the rating popup.
+ffmpeg that comes with the imageio-ffmpeg package. By default the clip is the minute with the most varied gaze
+(for video 1: 10:05-11:05, with trucks, cars, road lines, the speed display and the rating popup).
 
 Output: <sync-dir>/demo_<start>-<end>.mp4 ('_full' added for --style full)
 """
@@ -32,9 +32,9 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--sync-dir", required=True)
     ap.add_argument("--video", required=True)
-    ap.add_argument("--start-frame", type=int, default=18150)
+    ap.add_argument("--start-frame", type=int, default=None, help="default: the most varied minute")
     ap.add_argument("--seconds", type=float, default=60)
-    ap.add_argument("--whole-drive", action="store_true", help="render frames 2,090-20,460 instead")
+    ap.add_argument("--whole-drive", action="store_true", help="render the whole drive instead")
     ap.add_argument("--width", type=int, default=1280, help="output width (height keeps 4:3)")
     ap.add_argument("--style", choices=["clean", "full"], default="clean",
                     help="clean: highlight only what the driver looks at; full: draw everything found")
@@ -42,16 +42,21 @@ def main():
     d = args.sync_dir
 
     info = video_info(args.video)
+    id2label = {int(k): v for k, v in json.load(open(f"{d}/seg_m2f.json"))["id2label"].items()}
+    labels = pd.read_parquet(f"{d}/gaze_labels.parquet")
+    drive = label.drive_frames(d, id2label)
     if args.whole_drive:
-        start, end = label.DRIVE_FRAMES
+        start, end = drive
     else:
-        start, end = args.start_frame, min(args.start_frame + int(args.seconds * info.fps), info.n_frames) - 1
+        first = args.start_frame
+        if first is None:
+            first = demo.pick_clip(labels, drive, info.fps, args.seconds)
+        start, end = first, min(first + int(args.seconds * info.fps), info.n_frames) - 1
     frames = np.arange(start, end + 1)
 
     cal = json.load(open(f"{d}/calibration.json"))
     radius = cal["px_per_deg"] * label.RADIUS_DEG
-    id2label = {int(k): v for k, v in json.load(open(f"{d}/seg_m2f.json"))["id2label"].items()}
-    summary = demo.frame_summary(pd.read_parquet(f"{d}/gaze_labels.parquet"))
+    summary = demo.frame_summary(labels)
     boxes = pd.read_parquet(f"{d}/detections_yolo11l_tracked.parquet")
     dropped = json.load(open(f"{d}/gaze_labels.json")).get("dropped_interior_tracks", [])
     boxes = boxes[(boxes.track_len >= label.MIN_TRACK_LEN) & boxes.frame.between(start, end)

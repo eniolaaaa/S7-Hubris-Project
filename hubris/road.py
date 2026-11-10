@@ -138,6 +138,33 @@ def road_layers(seg: np.ndarray, id2label: dict, edge_px: int = 2, min_area_frac
     return {"road surface": surface, "road line": line, "road edge": edge, "guard rail": rail}
 
 
+def drive_range(seg_dir: str, frames, id2label: dict, step: int = 3, window_s: float = 10, fps: float = 30,
+                need: float = 0.9, min_road: float = 0.005) -> tuple[int, int]:
+    """First and last frame of the actual drive: where the road is visible, i.e. not the fog at the start and end.
+
+    Every `step`-th frame is checked for road (> min_road of the pixels). The drive starts at the first frame
+    after which the road is visible in at least `need` of the next `window_s` seconds, and ends at the last
+    frame before which that holds for the previous `window_s` seconds. On video 1 this gives the frames that
+    were found by eye (~2,090 and ~20,460).
+    """
+    import pandas as pd
+    ids = _ids(["Road", "Lane Marking - General"], id2label)
+    vis = {}
+    for f in sorted(frames)[::step]:
+        seg = cv2.imread(f"{seg_dir}/{int(f):06d}.png", cv2.IMREAD_UNCHANGED)
+        if seg is not None:
+            vis[int(f)] = np.isin(seg, ids).mean() > min_road
+    s = pd.Series(vis).sort_index()
+    w = max(1, int(window_s * fps / step))
+    ahead = s[::-1].rolling(w, min_periods=w).mean()[::-1]
+    behind = s.rolling(w, min_periods=w).mean()
+    start = s[(s) & (ahead >= need)].index
+    end = s[(s) & (behind >= need)].index
+    if not len(start) or not len(end):
+        raise ValueError("no stretch with the road visible: check the segmentation")
+    return int(start[0]), int(end[-1])
+
+
 LAYER_COLORS = {"road surface": (128, 64, 128), "guard rail": (255, 160, 0),
                 "road edge": (0, 255, 255), "road line": (0, 0, 255)}
 
